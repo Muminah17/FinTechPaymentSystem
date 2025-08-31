@@ -1,0 +1,32 @@
+# transfer-service/src/main/resources/application.yml
+server:
+  port: 8080
+
+ledger:
+  base-url: http://localhost:8081
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      ledger:
+        registerHealthIndicator: true
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+  retry:
+    instances:
+      ledger:
+        maxAttempts: 3
+        waitDuration: 200ms
+        retryExceptions:
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+          - java.io.IOException
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
