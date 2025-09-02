@@ -8,6 +8,8 @@ This project implements a simplified **payments platform** consisting of two mic
 - **Transfer Service**  
   Responsible for coordinating money transfers between accounts, ensuring idempotency, and interacting with the Ledger Service.
 
+For a demo of the payments system please view video [here](https://www.loom.com/share/6fab71ce02614ee2863a5697cabcb0c0?sid=c02cb60e-48fc-4a6b-82fc-b2fefdc4a3dd).
+
 ---
 
 ## 🚀 Getting Started
