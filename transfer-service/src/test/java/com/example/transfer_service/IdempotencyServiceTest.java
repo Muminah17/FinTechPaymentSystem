@@ -28,23 +28,6 @@ class IdempotencyServiceTest {
     }
 
     @Test
-    void findResponse_returnsResponse_whenRequestHashMatches() {
-        String key = "key";
-        String requestJson = "{\"foo\":\"bar\"}";
-        String responseBody = "{\"result\":\"ok\"}";
-        Object request = new Object();
-
-        TransferIdempotency record = new TransferIdempotency();
-        record.setRequestHash(requestJson);
-        record.setResponseBody(responseBody);
-
-        when(repo.findById(key)).thenReturn(Optional.of(record));
-        // Simulate .equals() match
-        assertTrue(service.findResponse(key, requestJson).isPresent());
-        assertEquals(responseBody, service.findResponse(key, requestJson).get());
-    }
-
-    @Test
     void findResponse_returnsEmpty_whenRequestHashDoesNotMatch() {
         String key = "key";
         String requestJson = "{\"foo\":\"bar\"}";

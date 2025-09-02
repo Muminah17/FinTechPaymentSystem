@@ -5,6 +5,8 @@ import com.example.ledger_service.dto.CreateAccount;
 import com.example.ledger_service.entity.Account;
 import com.example.ledger_service.exception.NotFoundException;
 import com.example.ledger_service.repository.AccountRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
     public AccountService(AccountRepository accountRepository) {
         this.accountRepository = accountRepository;
@@ -21,6 +24,7 @@ public class AccountService {
     public AccountResponse create(CreateAccount req) {
         int initial = req.getInitialBalance() == null ? 0 : req.getInitialBalance();
         if (initial < 0) {
+            log.error("Attempt to create account with negative initial balance: {}", initial);
             throw new IllegalArgumentException("Initial balance must be >= 0");
         }
         Account acc = new Account(initial, req.getName());

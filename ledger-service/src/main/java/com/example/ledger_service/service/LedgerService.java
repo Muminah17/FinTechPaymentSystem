@@ -10,6 +10,7 @@ import com.example.ledger_service.repository.AccountRepository;
 import com.example.ledger_service.repository.LedgerEntryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ public class LedgerService {
      * Retries a few times on OptimisticLockException.
      */
     @Transactional
+    @Async
     public TransferResponse doApplyTransfer(TransferRequest req) {
 
         if (req.getFromAccountId().equals(req.getToAccountId())) {
@@ -64,6 +66,7 @@ public class LedgerService {
         LedgerEntry credit = new LedgerEntry(req.getTransferId(), to.getId(), req.getAmount(), LedgerEntry.Type.CREDIT);
         ledgerEntryRepository.save(debit);
         ledgerEntryRepository.save(credit);
+        log.debug("Transfer applied: {}", req.getTransferId());
 
         return new TransferResponse(req.getTransferId(), "SUCCESS", "OK",
                 req.getFromAccountId(), req.getToAccountId(), req.getAmount());

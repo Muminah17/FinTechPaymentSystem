@@ -39,15 +39,19 @@ Transfer Service → http://localhost:8080
    -d '{"owner":"Alice","balance":500}'
 ````
 
+````
 curl -X POST http://localhost:8081/accounts \
 -H "Content-Type: application/json" \
 -d '{"owner":"Bob","balance":100}'
-
+````
 2. Fetch Account Details
+
    curl http://localhost:8081/accounts/1
+
    curl http://localhost:8081/accounts/2
 
 3. Single Transfer (Idempotent)
+````
    curl -X POST http://localhost:8080/transfers \
    -H "Content-Type: application/json" \
    -H "Idempotency-Key: tx-12345" \
@@ -57,11 +61,13 @@ curl -X POST http://localhost:8081/accounts \
    "toAccountId":2,
    "amount":100
    }'
+   ````
 
 
 👉 Running the same command again with the same Idempotency-Key will return the same response and not double-charge.
 
 4. Batch Transfer
+````
    curl -X POST http://localhost:8080/transfers/batch \
    -H "Content-Type: application/json" \
    -H "Idempotency-Key: batch-001" \
@@ -71,10 +77,12 @@ curl -X POST http://localhost:8081/accounts \
    {"transferId":"t-b2","fromAccountId":2,"toAccountId":1,"amount":25}
    ]
    }'
+   ````
 
 5. Simulating Insufficient Funds
 
 If you attempt to debit more than available, Transfer Service will mark the transfer as FAILED:
+````
 
 curl -X POST http://localhost:8080/transfers \
 -H "Content-Type: application/json" \
@@ -85,7 +93,7 @@ curl -X POST http://localhost:8080/transfers \
 "toAccountId":2,
 "amount":10000
 }'
-
+````
 ### ⚙️ 4. Technologies
 
 Java 17 + Spring Boot 3

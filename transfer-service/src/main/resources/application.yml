@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: transfer-service
+
+  datasource:
+    url: jdbc:h2:mem:dcbapp
+    driverClassName: org.h2.Driver
+    username: sa
+    password: sa
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  h2:
+    console:
+      enabled: true
+
+server:
+  port: 8080
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSX} %-5level [%X{requestId}] %logger{36} - %msg%n"
+  level:
+    io.github.resilience4j.circuitbreaker: DEBUG
+    io.github.resilience4j.core: DEBUG
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      ledgerClient:
+        timeoutDuration: 5s
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        ignoreExceptions:
+          - com.example.transfer_service.exception.InsufficientFundsException
+          - com.example.transfer_service.exception.NotFoundException
+          - com.example.transfer_service.exception.ConflictException

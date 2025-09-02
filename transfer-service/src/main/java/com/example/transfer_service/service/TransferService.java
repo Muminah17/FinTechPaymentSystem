@@ -4,7 +4,7 @@ import com.example.transfer_service.clients.LedgerClient;
 import com.example.transfer_service.dto.TransferRequest;
 import com.example.transfer_service.dto.TransferResponse;
 import com.example.transfer_service.entity.Transfer;
-import com.example.transfer_service.exception.ApiError;
+import com.example.transfer_service.exception.ConflictException;
 import com.example.transfer_service.exception.InsufficientFundsException;
 import com.example.transfer_service.exception.NotFoundException;
 import com.example.transfer_service.repository.TransferRepository;
@@ -14,15 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -67,14 +61,17 @@ public class TransferService {
             try {
                 attempt++;
                 transferResponse = ledgerClient.applyTransfer(req);
+                log.info("Storing idempotent response for key={} -> {}", key, transferResponse);
                 idempotencyService.saveResponse(key,req, transferResponse);
                 transferRepository.save(new Transfer(req.getTransferId(),Transfer.Status.SUCCESS,
                         "OK", req.getToAccountId(), req.getFromAccountId(), req.getAmount()));
+                log.info("Transfer completed for transferId={} -> {}", transferResponse.getTransferId(), transferResponse.getStatus());
                 return transferResponse;
             } catch (OptimisticLockException ole) {
                 if (attempt >= maxRetries) throw ole;
                 log.warn("Optimistic lock failed on attempt {} for transferId={}", attempt, key);
             } catch (InsufficientFundsException e) {
+                log.warn("Insufficient funds for transferId={}: {}", key, e.getMessage());
                 transferRepository.save(new Transfer(req.getTransferId(),Transfer.Status.FAILED,
                         "Insufficient funds", req.getToAccountId(), req.getFromAccountId(), req.getAmount()));
                 throw e;
@@ -90,7 +87,7 @@ public class TransferService {
     @Transactional(readOnly = true)
     public TransferResponse get(String id) {
         Transfer transfer = transferRepository.findByTransferId(id)
-                .orElseThrow(() -> new NotFoundException("Account " + id + " not found"));
+                .orElseThrow(() -> new NotFoundException("Transfer with " + id + " not found"));
         return new TransferResponse(transfer.getTransferId(), transfer.getStatus().toString(), transfer.getMessage(), transfer.getToAccountId(), transfer.getFromAccountId(), transfer.getAmount());
     }
 
@@ -108,19 +105,43 @@ public class TransferService {
             }
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(20);
+        ExecutorService executor = Executors.newFixedThreadPool(requests.size());
 
         List<CompletableFuture<TransferResponse>> futures = requests.stream()
-                .map(req -> CompletableFuture.supplyAsync(() -> ledgerClient.applyTransfer(req), executor))
+                .map(req -> CompletableFuture.supplyAsync(() -> ledgerClient.applyTransfer(req), executor)
+                        .exceptionally(ex -> new TransferResponse(
+                                req.getTransferId(),
+                                "FAILED",
+                                getErrorMessage((Exception) ex.getCause()),
+                                req.getToAccountId(),
+                                req.getFromAccountId(),
+                                req.getAmount()
+                        )))
                 .toList();
 
         List<TransferResponse> results = futures.stream()
                 .map(CompletableFuture::join)
                 .toList();
-
+        results.forEach(res -> transferRepository.save(new Transfer(res.getTransferId(), Transfer.Status.valueOf(res.getStatus()),
+                res.getMessage(), res.getToAccountId(), res.getFromAccountId(), res.getAmount())));
+        log.info("Batch transfer completed for key={}", key);
         executor.shutdown();
 
         return results;
+
+    }
+
+    private String getErrorMessage(Exception e) {
+        if (e.getClass().equals(NotFoundException.class)) {
+            return "Account not found";
+        } else if (e.getClass().equals(InsufficientFundsException.class)) {
+            return "Insufficient funds";
+        } else if (e.getClass().equals(ConflictException.class)) {
+            return "Conflict error";
+        } else if (e.getClass().equals(IllegalArgumentException.class)) {
+            return "Validation error";
+        }
+        return "Unknown error";
 
     }
 

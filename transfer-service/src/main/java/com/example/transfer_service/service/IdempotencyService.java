@@ -1,14 +1,12 @@
 package com.example.transfer_service.service;
 
-import com.example.transfer_service.dto.TransferResponse;
 import com.example.transfer_service.entity.TransferIdempotency;
 import com.example.transfer_service.repository.IdempotencyRecordRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -18,6 +16,7 @@ public class IdempotencyService {
 
     private final IdempotencyRecordRepository repo;
     private final ObjectMapper mapper;
+    private static final Logger log = LoggerFactory.getLogger(IdempotencyService.class);
 
     public IdempotencyService(IdempotencyRecordRepository repo, ObjectMapper mapper) {
         this.repo = repo;
@@ -26,7 +25,7 @@ public class IdempotencyService {
 
     public Optional<String> findResponse(String key, Object request) {
         return repo.findById(key)
-                .filter(r -> r.getRequestHash().equals(request))
+                .filter(r -> r.getRequestHash().equals(writeJson(request)))
                 .map(TransferIdempotency::getResponseBody);
 
     }
@@ -49,16 +48,5 @@ public class IdempotencyService {
         catch (Exception e) { throw new RuntimeException("Serialization failed", e); }
     }
 
-/*    private String hash(Object obj) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest(mapper.writeValueAsBytes(obj));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : bytes) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("Hashing failed", e);
-        }
-    }*/
 }
 
